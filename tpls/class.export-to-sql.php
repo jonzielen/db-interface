@@ -26,12 +26,41 @@
         printf("Connect failed: %s\n", mysqli_connect_error());
         exit();
       }
-      $this::buildCSV($this->_link, $this->itemsPerPage, $this->data);
+      $this::buildSQL($this->_link, $this->data);
     }
 
-    private function buildCSV($_link, $itemsPerPage, $data) {
+    private function buildSQL($_link, $data) {
       $this->result = mysqli_query($this->_link, "SELECT * FROM ".$this->data['table']);
-      $output = "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\nSET time_zone = \"+00:00\";\n\n";
+      $dbInfo = mysqli_query($this->_link, "SHOW COLUMNS FROM `".$this->data['table']."`");
+
+      $output = "--\n-- Table structure for table `".$this->data['table']."`\n--\n\n";
+      $output .= "CREATE TABLE IF NOT EXISTS `".$this->data['table']."` (\n";
+
+      $priUni = '';
+      while ($obj = mysqli_fetch_object($dbInfo)) {
+        $output .=  "\t`".$obj->Field."` ".$obj->Type;
+        $output .= (($obj->Null == 'NO') ? ' NOT NULL' : ' NULL');
+        $output .= (($obj->Default != '') ? ' '.$obj->Default : '');
+        $output .= (($obj->Extra != '') ? ' '.strtoupper($obj->Extra) : '').", \n";
+
+        if ($obj->Key == 'PRI') {
+          $priUni .= "\tPRIMARY KEY (`".$obj->Field."`), \n";
+        }
+
+        if ($obj->Extra == 'auto_increment') {
+          $priUni .= "\tUNIQUE KEY `".$obj->Field."` (`".$obj->Field."`), \n";
+        }
+      }
+
+      $output .= rtrim($priUni, ", \n");
+
+      $dbStatus = mysqli_query($this->_link, "SHOW TABLE STATUS");
+      while ($obj = mysqli_fetch_object($dbStatus)) {
+        $output .=  "\n) ENGINE=".$obj->Engine." DEFAULT CHARSET=".$obj->Collation;
+        $output .=  ' AUTO_INCREMENT='.$obj->Auto_increment;
+      }
+
+      $output .= ";\n\n--\n-- Dumping data for table `".$this->data['table']."`\n--\n\n";
 
       $i = 0;
       while($row = mysqli_fetch_array($this->result, MYSQLI_ASSOC)) {
@@ -49,17 +78,16 @@
         $output .= '(';
         $dbVals = '';
         foreach ($row as $key => $value) {
-          switch (gettype($value)) {
-            case 'integer':
-            case 'double':
-            case 'float':
-              $dbVals .= $value.', ';
-              break;
+          $dbVals .= "'".$value."', ";
+          //$dbVals .= "'".preg_replace("'", "''", $value)."', ";
+          /*$regex = '/[\d\.?]+/';
+          $numberCheck = preg_match($regex, $value);
 
-            default:
-              $dbVals .= "'$value', ";
-              break;
-          }
+          if ($numberCheck) {
+            $dbVals .= $value.', ';
+          } else {
+            $dbVals .= "'".$value."', ";
+          }*/
         }
         $output .= rtrim($dbVals, ", ");
         $output .= "),\n";

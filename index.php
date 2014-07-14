@@ -1,18 +1,10 @@
 <?php
   session_start();
-  require_once('tpls/settings.php');
 
-  if (!empty($_POST)) {
-    $user['name'] = $_POST['username'];
-    $user['pass'] = $_POST['password'];
-    unset($_POST);
-  } else {
-    $user['name'] = '';
-    $user['pass'] = '';
+  if (!isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == false) {
+    header("Location: login.php", 302);
   }
-
-  require_once('tpls/login.php');
-  $loggedIn = new login($user, $settings);
+  require_once('tpls/settings.php');
 ?>
 <!DOCTYPE html>
 <html>
@@ -21,17 +13,7 @@
   <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
-<?php if (!$loggedIn->isLoggedIn): ?>
-  <form action="<?php echo 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']; ?>" method="post">
-    <label for="username">Username:</label><br />
-    <input type="text" name="username" id="username" /><br />
-    <label for="password">Password:</label><br />
-    <input type="password" name="password" id="password" /><br />
-    <button>Go!</button>
-  </form>
-<?php endif ?>
-
-<?php if ($loggedIn->isLoggedIn): ?>
+<?php if ($_SESSION['loggedin'] == true): ?>
   <ul>
     <li>search db</li>
     <li>delete row</li>
